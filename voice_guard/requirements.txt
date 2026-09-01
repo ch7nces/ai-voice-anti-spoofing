@@ -1,1 +1,33 @@
+# Core Deep Learning & Transformers
+torch>=2.0.0
+torchaudio>=2.0.0
+transformers>=4.30.0
+huggingface_hub>=0.16.0
+accelerate>=0.20.0
+
+# Audio Signal Processing & DSP
+librosa>=0.10.0
+soundfile>=0.12.1
+scipy>=1.10.0
+pyaudio>=0.2.13
+sounddevice>=0.4.6
+numpy>=1.23.5
+
+# Web Backend & Real-Time Streaming
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+websockets>=11.0.3
+python-multipart>=0.0.6
+pydantic>=2.0.0
+requests>=2.31.0
+
+# Frontend Dashboard & UI
+streamlit>=1.25.0
+streamlit-webrtc>=0.45.0
+matplotlib>=3.7.0
+plotly>=5.15.0
+
+# Utilities
+tqdm>=4.65.0
+python-dotenv>=1.0.0
 
