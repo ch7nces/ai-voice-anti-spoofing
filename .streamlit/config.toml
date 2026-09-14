@@ -9,5 +9,3 @@ baseUrlPath = ""
 
 [browser]
 gatherUsageStats = false
-serverAddress = "ai-voice-anti-spoofing.onrender.com"
-serverPort = 443
