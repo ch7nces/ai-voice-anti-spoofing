@@ -6,7 +6,6 @@ import io
 import soundfile as sf
 
 from audio_engine import AudioFeatureExtractor
-from model_detector import VoiceSpoofDetector
 from risk_scorer import DynamicRiskScorer
 from otp_service import OutOfBandAuthService
 
@@ -16,17 +15,22 @@ st.set_page_config(
     layout="wide"
 )
 
-# Initialize components
+# Lightweight singletons on startup
 if "extractor" not in st.session_state:
     st.session_state.extractor = AudioFeatureExtractor()
-    st.session_state.detector = VoiceSpoofDetector()
     st.session_state.scorer = DynamicRiskScorer()
     st.session_state.otp_service = OutOfBandAuthService()
     st.session_state.otp_sent = False
     st.session_state.registered_phone = "+919876543210"
+    st.session_state.detector = None  # Lazy load to prevent Render 512MB crash
+
+@st.cache_resource(show_spinner=False)
+def get_detector():
+    """Loads heavy torch model only when needed and caches it."""
+    from model_detector import VoiceSpoofDetector
+    return VoiceSpoofDetector()
 
 extractor = st.session_state.extractor
-detector = st.session_state.detector
 scorer = st.session_state.scorer
 
 # UI Header
@@ -43,12 +47,7 @@ scorer.hard_threshold = hard_thresh
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**System Health:** `ONLINE`")
-st.sidebar.markdown(f"**Compute Device:** `{detector.device.upper()}`")
-
-if st.sidebar.button("🔄 Force Reload Detector Model"):
-    st.session_state.detector = VoiceSpoofDetector()
-    st.session_state.scorer = DynamicRiskScorer()
-    st.rerun()
+st.sidebar.markdown("**Environment:** `Cloud Container (Optimized)`")
 
 tab1, tab2 = st.tabs(["📁 File Upload Analysis", "🎙️ Live Mic Test"])
 
@@ -85,7 +84,8 @@ with tab1:
         audio_bytes = uploaded_file.read()
         st.audio(audio_bytes, format="audio/wav")
 
-        with st.spinner("Processing acoustic artifacts and neural voice patterns..."):
+        with st.spinner("Analyzing acoustic and neural artifacts..."):
+            detector = get_detector()
             scorer.reset()
             y = extractor.load_audio_bytes(audio_bytes)
             prosody = extractor.extract_prosodic_features(y)
@@ -159,6 +159,7 @@ with tab2:
 
     if audio_input is not None:
         raw_bytes = audio_input.read()
+        detector = get_detector()
         y_live = extractor.load_audio_bytes(raw_bytes)
 
         prosody_live = extractor.extract_prosodic_features(y_live)
