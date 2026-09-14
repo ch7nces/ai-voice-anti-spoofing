@@ -8,6 +8,7 @@ import soundfile as sf
 from audio_engine import AudioFeatureExtractor
 from model_detector import VoiceSpoofDetector
 from risk_scorer import DynamicRiskScorer
+from otp_service import OutOfBandAuthService
 
 st.set_page_config(
     page_title="VoiceGuard | AI Voice Cloning Detection",
@@ -15,11 +16,14 @@ st.set_page_config(
     layout="wide"
 )
 
-# Initialize components (no stale cache)
+# Initialize components
 if "extractor" not in st.session_state:
     st.session_state.extractor = AudioFeatureExtractor()
     st.session_state.detector = VoiceSpoofDetector()
     st.session_state.scorer = DynamicRiskScorer()
+    st.session_state.otp_service = OutOfBandAuthService()
+    st.session_state.otp_sent = False
+    st.session_state.registered_phone = "+919876543210"
 
 extractor = st.session_state.extractor
 detector = st.session_state.detector
@@ -41,13 +45,11 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("**System Health:** `ONLINE`")
 st.sidebar.markdown(f"**Compute Device:** `{detector.device.upper()}`")
 
-# Button to manually clear cache if needed
 if st.sidebar.button("🔄 Force Reload Detector Model"):
     st.session_state.detector = VoiceSpoofDetector()
     st.session_state.scorer = DynamicRiskScorer()
     st.rerun()
 
-# Input Mode Tabs
 tab1, tab2 = st.tabs(["📁 File Upload Analysis", "🎙️ Live Mic Test"])
 
 def render_risk_gauge(score):
@@ -60,9 +62,9 @@ def render_risk_gauge(score):
             'axis': {'range': [0, 100], 'tickwidth': 1},
             'bar': {'color': "#1f2937"},
             'steps': [
-                {'range': [0, soft_thresh], 'color': "#10b981"},      # Green
-                {'range': [soft_thresh, hard_thresh], 'color': "#f59e0b"}, # Orange
-                {'range': [hard_thresh, 100], 'color': "#ef4444"}     # Red
+                {'range': [0, soft_thresh], 'color': "#10b981"},
+                {'range': [soft_thresh, hard_thresh], 'color': "#f59e0b"},
+                {'range': [hard_thresh, 100], 'color': "#ef4444"}
             ],
             'threshold': {
                 'line': {'color': "black", 'width': 4},
@@ -101,53 +103,37 @@ with tab1:
                 st.error(f"🚨 **{result['status']}**")
                 st.markdown(f"**Recommendation:** {result['message']}")
                 st.button("⛔ Auto-Block High-Value Transaction", type="primary", key="btn_block_file")
+            
             elif result["status"] == "SUSPICIOUS":
-                # Initialize OTP service in session_state
-                if "otp_service" not in st.session_state:
-                    st.session_state.otp_service = OutOfBandAuthService()
-                if "otp_sent" not in st.session_state:
-                    st.session_state.otp_sent = False
-                if "registered_phone" not in st.session_state:
-                    st.session_state.registered_phone = "+919876543210"
-
-                # Inside Decision Status col2:
-                elif result["status"] == "SUSPICIOUS":
-                    st.warning(f"⚠️ **{result['status']}**")
-                    st.markdown(f"**Recommendation:** {result['message']}")
-                    
-                    # Trigger Button
-                    if st.button("📲 Trigger Immediate Out-of-Band OTP", key="btn_otp_file"):
-                        response = st.session_state.otp_service.generate_and_send_otp(st.session_state.registered_phone)
-                        st.session_state.otp_sent = True
-                        st.session_state.last_demo_otp = response["demo_otp_display"]
-                        st.toast(f"Out-of-Band SMS Sent to {st.session_state.registered_phone}!", icon="📲")
-
-                    # Dynamic OTP Input Form
-                    if st.session_state.otp_sent:
-                        st.info(f"🔑 Security OTP dispatched to registered device: `{st.session_state.registered_phone}`")
-                        
-                        # Hackathon Judge Convenience Box:
-                        with st.expander("🛠️ LEA / Evaluator Simulation Console"):
-                            st.code(f"Simulated SMS Payload received on device:\nOTP: {st.session_state.get('last_demo_otp', '123456')}")
-
-                        with st.form("oob_verification_form"):
-                            entered_otp = st.text_input("Enter 6-digit OTP received via SMS:", max_chars=6)
-                            submit_btn = st.form_submit_button("Verify Identity & Authorize Call")
-
-                            if submit_btn:
-                                verify_res = st.session_state.otp_service.verify_otp(
-                                    st.session_state.registered_phone, 
-                                    entered_otp
-                                )
-                                if verify_res["success"]:
-                                    st.success(f"✅ {verify_res['message']}")
-                                    st.balloons()
-                                    st.session_state.otp_sent = False
-                                else:
-                                    st.error(f"❌ {verify_res['message']}")
                 st.warning(f"⚠️ **{result['status']}**")
                 st.markdown(f"**Recommendation:** {result['message']}")
-                st.button("📲 Trigger Immediate Out-of-Band OTP", key="btn_otp_file")
+                
+                if st.button("📲 Trigger Immediate Out-of-Band OTP", key="btn_otp_file"):
+                    response = st.session_state.otp_service.generate_and_send_otp(st.session_state.registered_phone)
+                    st.session_state.otp_sent = True
+                    st.session_state.last_demo_otp = response["demo_otp_display"]
+                    st.toast(f"Out-of-Band SMS Sent to {st.session_state.registered_phone}!", icon="📲")
+
+                if st.session_state.otp_sent:
+                    st.info(f"🔑 Security OTP dispatched to registered device: `{st.session_state.registered_phone}`")
+                    with st.expander("🛠️ LEA / Evaluator Simulation Console"):
+                        st.code(f"Simulated SMS Payload received on device:\nOTP: {st.session_state.get('last_demo_otp', '123456')}")
+
+                    with st.form("oob_verification_form"):
+                        entered_otp = st.text_input("Enter 6-digit OTP received via SMS:", max_chars=6)
+                        submit_btn = st.form_submit_button("Verify Identity & Authorize Call")
+
+                        if submit_btn:
+                            verify_res = st.session_state.otp_service.verify_otp(
+                                st.session_state.registered_phone, 
+                                entered_otp
+                            )
+                            if verify_res["success"]:
+                                st.success(f"✅ {verify_res['message']}")
+                                st.balloons()
+                                st.session_state.otp_sent = False
+                            else:
+                                st.error(f"❌ {verify_res['message']}")
             else:
                 st.success(f"✅ **{result['status']}**")
                 st.markdown(f"**Recommendation:** {result['message']}")
@@ -160,7 +146,7 @@ with tab1:
         st.markdown("### 🔬 Spectral Signature Inspection")
         mel_spec = extractor.compute_mel_spectrogram(y)
         fig_spec, ax = plt.subplots(figsize=(10, 2.8))
-        im = ax.imshow(mel_spec, aspect='auto', origin='lower', cmap='magma')
+        ax.imshow(mel_spec, aspect='auto', origin='lower', cmap='magma')
         ax.set_title("Log-Mel Spectrogram (Acoustic Footprint)")
         ax.set_ylabel("Freq Bins")
         ax.set_xlabel("Time Frames")
