@@ -12,13 +12,20 @@ WORKDIR /app
 # Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip
 
-# Install python dependencies
+# Install requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files (including .streamlit config)
+# Copy all application files
 COPY . .
 
 EXPOSE 10000
 
-ENTRYPOINT ["streamlit", "run", "app.py"]
+# Explicitly launch ONLY streamlit on port 10000
+CMD ["python", "-m", "streamlit", "run", "app.py", \
+    "--server.port=10000", \
+    "--server.address=0.0.0.0", \
+    "--server.headless=true", \
+    "--server.enableCORS=false", \
+    "--server.enableXsrfProtection=false", \
+    "--browser.gatherUsageStats=false"]
