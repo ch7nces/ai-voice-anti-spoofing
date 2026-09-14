@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-# System dependencies
+# System audio dependencies
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libsndfile1 \
@@ -9,16 +9,24 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Upgrade pip first
+# Upgrade pip
 RUN pip install --no-cache-dir --upgrade pip
 
-# Install python packages
+# Install python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all application code
+# Copy all application files
 COPY . .
 
+# Render exposes 10000
 EXPOSE 10000
 
-CMD ["streamlit", "run", "app.py", "--server.port=10000", "--server.address=0.0.0.0", "--server.enableCORS=false", "--server.enableXsrfProtection=false"]
+# Streamlit-exclusive headless cloud flags (Fixes blank screen & websocket hang)
+CMD ["streamlit", "run", "app.py", \
+    "--server.port=10000", \
+    "--server.address=0.0.0.0", \
+    "--server.headless=true", \
+    "--server.enableCORS=false", \
+    "--server.enableXsrfProtection=false", \
+    "--browser.gatherUsageStats=false"]
