@@ -16,17 +16,9 @@ RUN pip install --no-cache-dir --upgrade pip
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all application files
+# Copy application files (including .streamlit config)
 COPY . .
 
-# Render exposes 10000
 EXPOSE 10000
 
-# Streamlit-exclusive headless cloud flags (Fixes blank screen & websocket hang)
-CMD ["streamlit", "run", "app.py", \
-    "--server.port=10000", \
-    "--server.address=0.0.0.0", \
-    "--server.headless=true", \
-    "--server.enableCORS=false", \
-    "--server.enableXsrfProtection=false", \
-    "--browser.gatherUsageStats=false"]
+ENTRYPOINT ["streamlit", "run", "app.py"]
